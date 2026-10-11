@@ -1,1 +1,206 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mini ChatGPT</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #212121;
+      color: #f5f5f5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 18px 22px;
+      border-bottom: 1px solid #3c3c3c;
+      font-size: 21px;
+      font-weight: bold;
+    }
+    #chat {
+      width: 100%;
+      max-width: 850px;
+      margin: 0 auto;
+      padding: 24px 18px 150px;
+      flex: 1;
+    }
+    .message {
+      padding: 15px 17px;
+      margin: 12px 0;
+      border-radius: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .user { background: #343541; }
+    .assistant { background: #2a2b32; }
+    .label {
+      font-size: 12px;
+      color: #aaa;
+      margin-bottom: 6px;
+    }
+    .bottom {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 16px;
+      background: linear-gradient(transparent, #212121 18%);
+    }
+    .composer {
+      max-width: 820px;
+      margin: 0 auto;
+      display: flex;
+      gap: 10px;
+      background: #303030;
+      border: 1px solid #555;
+      border-radius: 16px;
+      padding: 10px;
+    }
+    textarea {
+      flex: 1;
+      resize: none;
+      border: 0;
+      outline: none;
+      background: transparent;
+      color: white;
+      font: inherit;
+      padding: 9px;
+      min-height: 44px;
+      max-height: 140px;
+    }
+    button {
+      border: 0;
+      border-radius: 10px;
+      cursor: pointer;
+      padding: 10px 15px;
+      font-weight: bold;
+    }
+    #send { background: #19c37d; color: #111; }
+    #send:disabled { opacity: .5; cursor: wait; }
+    #newChat { background: #414141; color: white; }
+    .hint {
+      text-align: center;
+      color: #aaa;
+      font-size: 12px;
+      margin-top: 9px;
+    }
+    @media(max-width: 520px) {
+      header { padding: 15px; }
+      #newChat { padding: 8px; }
+      .composer { gap: 5px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    Mini ChatGPT
+    <button id="newChat" style="float:right">New chat</button>
+  </header>
+
+  <main id="chat">
+    <div class="message assistant">
+      Vanakkam bro! 👋 I'm your Mini ChatGPT.
+      Ask me anything in Tamil, Tanglish, or English.
+    </div>
+  </main>
+
+  <div class="bottom">
+    <div class="composer">
+      <textarea id="prompt" placeholder="Message Mini ChatGPT..." rows="1"></textarea>
+      <button id="send">Send</button>
+    </div>
+    <div class="hint">AI can make mistakes. Check important information.</div>
+  </div>
+
+  <script>
+    const API_URL = "https://mini-chatgpt-api.hemanthkumar22156.workers.dev";
+    const chat = document.getElementById("chat");
+    const promptBox = document.getElementById("prompt");
+    const sendButton = document.getElementById("send");
+    let history = [];
+
+    function addMessage(role, content) {
+      const box = document.createElement("div");
+      box.className = "message " + role;
+
+      const label = document.createElement("div");
+      label.className = "label";
+      label.textContent = role === "user" ? "You" : "Mini ChatGPT";
+
+      const text = document.createElement("div");
+      text.textContent = content;
+
+      box.append(label, text);
+      chat.appendChild(box);
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+      return box;
+    }
+
+    async function sendMessage() {
+      const message = promptBox.value.trim();
+      if (!message || sendButton.disabled) return;
+
+      addMessage("user", message);
+      history.push({ role: "user", content: message });
+      promptBox.value = "";
+      sendButton.disabled = true;
+      sendButton.textContent = "...";
+
+      const waiting = addMessage("assistant", "Thinking...");
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: history })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Request failed. Please try again.");
+        }
+
+        const answer = data.answer || "No answer received.";
+        waiting.lastElementChild.textContent = answer;
+        history.push({ role: "assistant", content: answer });
+      } catch (error) {
+        waiting.lastElementChild.textContent =
+          "Sorry bro! " + error.message +
+          "\nCloudflare AI binding and Worker settings check pannunga.";
+        history.pop();
+      } finally {
+        sendButton.disabled = false;
+        sendButton.textContent = "Send";
+        promptBox.focus();
+      }
+    }
+
+    sendButton.addEventListener("click", sendMessage);
+
+    promptBox.addEventListener("keydown", function(event) {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+      }
+    });
+
+    document.getElementById("newChat").addEventListener("click", function() {
+      history = [];
+      chat.innerHTML = "";
+      addMessage(
+        "assistant",
+        "New chat started! 👋 Ask me anything in Tamil, Tanglish, or English."
+      );
+      promptBox.focus();
+    });
+  </script>
+</body>
+</html>
+
