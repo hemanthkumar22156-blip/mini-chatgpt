@@ -1,259 +1,834 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mini ChatGPT</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini ChatGPT</title>
 
-  <!-- MINI CHATGPT TAB ICON: No separate image needed -->
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='b' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%2300bfff'/%3E%3Cstop offset='1' stop-color='%230033dd'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='24' fill='url(%23b)'/%3E%3Crect x='18' y='24' width='64' height='48' rx='17' fill='white'/%3E%3Crect x='24' y='30' width='52' height='36' rx='12' fill='%230d2048'/%3E%3Cpath d='M35 44 Q40 36 45 44 M55 44 Q60 36 65 44' fill='none' stroke='%2300d9ff' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M42 54 Q50 61 58 54' fill='none' stroke='%2300d9ff' stroke-width='4' stroke-linecap='round'/%3E%3Ccircle cx='50' cy='17' r='5' fill='%2300e5ff'/%3E%3Cpath d='M63 66 H81 Q88 66 88 74 V79 Q88 86 81 86 H70 L61 92 L63 82' fill='white'/%3E%3Ccircle cx='70' cy='76' r='2' fill='%230099ff'/%3E%3Ccircle cx='76' cy='76' r='2' fill='%230099ff'/%3E%3Ccircle cx='82' cy='76' r='2' fill='%230099ff'/%3E%3C/svg%3E" type="image/svg+xml">
+<!-- Browser tab favicon: embedded, no separate image needed -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%230078ff'/%3E%3Crect x='18' y='25' width='64' height='49' rx='17' fill='white'/%3E%3Crect x='25' y='32' width='50' height='35' rx='11' fill='%23102040'/%3E%3Cpath d='M35 46 Q40 39 45 46 M55 46 Q60 39 65 46 M42 55 Q50 62 58 55' stroke='%2300ddff' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 
-  <style>
-    * { box-sizing: border-box; }
+<style>
+*{box-sizing:border-box}
+:root{color-scheme:dark}
+html,body{height:100%}
+body{
+  margin:0;font-family:Arial,sans-serif;
+  background:#212121;color:#eee;
+  height:100vh;height:100dvh;
+  overflow:hidden
+}
+button,textarea{font:inherit}
+button{cursor:pointer}
+button:focus-visible,textarea:focus-visible,.history-item:focus-visible,a:focus-visible{
+  outline:2px solid #6cb6ff;outline-offset:2px
+}
+.app{display:flex;height:100vh;height:100dvh;width:100%}
 
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #212121;
-      color: #f5f5f5;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+/* SIDEBAR */
+.sidebar{
+  width:270px;min-width:270px;background:#171717;
+  display:flex;flex-direction:column;padding:12px;
+  border-right:1px solid #303030;
+  transition:margin-left .2s
+}
+.sidebar.closed{margin-left:-290px}
+.brand{
+  display:flex;align-items:center;gap:10px;
+  font-size:19px;font-weight:bold;padding:12px 8px 20px
+}
+.brand-icon{font-size:25px}
+.new-chat{
+  display:flex;align-items:center;gap:10px;
+  width:100%;padding:12px;border-radius:9px;
+  background:transparent;border:1px solid #414141;
+  color:#eee;text-align:left
+}
+.new-chat:hover,.history-item:hover{background:#292929}
+.recent-title{font-size:12px;color:#999;padding:22px 8px 10px}
+.chat-list{flex:1;overflow-y:auto}
+.history-item{
+  display:flex;align-items:center;gap:8px;
+  border-radius:8px;padding:11px 9px;margin:3px 0;
+  cursor:pointer;color:#ddd;font-size:14px
+}
+.history-item.active{background:#343434}
+.history-title{
+  flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis
+}
+.delete-chat{
+  border:0;background:transparent;color:#aaa;
+  padding:4px 6px;border-radius:5px;display:none
+}
+.history-item:hover .delete-chat,
+.history-item.active .delete-chat,
+.delete-chat:focus-visible{display:block}
+.delete-chat:hover{background:#555;color:white}
+.sidebar-footer{
+  padding:12px 6px 4px;border-top:1px solid #333;
+  color:#aaa;font-size:12px;line-height:1.5
+}
+.backdrop{display:none}
 
-    header {
-      padding: 18px 22px;
-      border-bottom: 1px solid #3c3c3c;
-      font-size: 21px;
-      font-weight: bold;
-    }
+/* MAIN CHAT */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+.topbar{
+  height:62px;flex-shrink:0;display:flex;align-items:center;
+  gap:12px;padding:0 20px;border-bottom:1px solid #333
+}
+.menu-btn{
+  background:transparent;border:0;color:#eee;
+  font-size:23px;padding:5px 8px
+}
+.top-title{font-size:17px;font-weight:bold}
+#chat{
+  flex:1;overflow-y:auto;width:100%;
+  padding:24px 18px 30px
+}
+.message-wrap{max-width:820px;margin:0 auto 20px}
+.message-label{font-size:12px;color:#aaa;margin:0 0 7px 3px}
+.message{
+  border-radius:15px;padding:14px 17px;
+  line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere
+}
+.message.user{background:#343541}
+.message.assistant{background:#2a2b32}
+.message a{color:#7ab7ff;text-decoration:underline}
+.message.thinking{color:#999}
 
-    #chat {
-      width: 100%;
-      max-width: 850px;
-      margin: 0 auto;
-      padding: 24px 18px 150px;
-      flex: 1;
-    }
+/* COMPOSER */
+.bottom{padding:12px 18px 14px;flex-shrink:0}
+.composer{
+  max-width:820px;margin:auto;display:flex;align-items:flex-end;
+  gap:10px;background:#303030;border:1px solid #555;
+  border-radius:18px;padding:10px 12px
+}
+#prompt{
+  flex:1;min-width:0;resize:none;border:0;outline:none;
+  background:transparent;color:white;font-size:16px;
+  line-height:1.5;padding:9px 5px;max-height:160px
+}
+#send{
+  background:#19c37d;color:#111;border:0;
+  border-radius:10px;padding:12px 16px;font-weight:bold
+}
+#send:disabled{opacity:.5;cursor:wait}
+#send:hover:not(:disabled){background:#12aa6b}
+.hint{text-align:center;color:#999;font-size:11px;margin-top:10px}
+.empty-note{text-align:center;color:#888;font-size:13px;padding:12px 5px}
+.hidden{display:none!important}
 
-    .message {
-      padding: 15px 17px;
-      margin: 12px 0;
-      border-radius: 14px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-    }
+/* TOAST (error / info messages) */
+.toast{
+  position:absolute;left:50%;bottom:96px;transform:translateX(-50%);
+  max-width:min(520px,calc(100% - 28px));
+  background:#3a2326;color:#ffd7d7;border:1px solid #7a3a40;
+  border-radius:12px;padding:11px 15px;font-size:14px;line-height:1.5;
+  box-shadow:0 6px 24px #0007;z-index:5
+}
 
-    .user { background: #343541; }
-    .assistant { background: #2a2b32; }
-
-    .label {
-      font-size: 12px;
-      color: #aaa;
-      margin-bottom: 6px;
-    }
-
-    .bottom {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      padding: 16px;
-      background: linear-gradient(transparent, #212121 18%);
-    }
-
-    .composer {
-      max-width: 820px;
-      margin: 0 auto;
-      display: flex;
-      gap: 10px;
-      background: #303030;
-      border: 1px solid #555;
-      border-radius: 16px;
-      padding: 10px;
-    }
-
-    textarea {
-      flex: 1;
-      resize: none;
-      border: 0;
-      outline: none;
-      background: transparent;
-      color: white;
-      font: inherit;
-      padding: 9px;
-      min-height: 44px;
-      max-height: 140px;
-    }
-
-    button {
-      border: 0;
-      border-radius: 10px;
-      cursor: pointer;
-      padding: 10px 15px;
-      font-weight: bold;
-    }
-
-    #send { background: #19c37d; color: #111; }
-    #send:disabled { opacity: .5; cursor: wait; }
-    #newChat { background: #414141; color: white; }
-
-    .hint {
-      text-align: center;
-      color: #aaa;
-      font-size: 12px;
-      margin-top: 9px;
-    }
-
-    @media(max-width: 520px) {
-      header { padding: 15px; }
-      #newChat { padding: 8px; }
-      .composer { gap: 5px; }
-    }
-  </style>
+@media(max-width:700px){
+  .sidebar{
+    position:fixed;top:0;bottom:0;left:0;z-index:10;
+    box-shadow:5px 0 25px #0008
+  }
+  .sidebar:not(.closed) + .backdrop{
+    display:block;position:fixed;inset:0;background:#0007;z-index:9
+  }
+  .topbar{height:56px;padding:0 10px}
+  #chat{padding:18px 12px}
+  .bottom{padding:8px 10px 12px}
+  .message{padding:12px}
+  .toast{bottom:92px}
+}
+@media(prefers-reduced-motion:reduce){
+  .sidebar{transition:none}
+}
+</style>
 </head>
 
 <body>
-  <header>
-    🤖 Mini ChatGPT
-    <button id="newChat" style="float:right">New chat</button>
-  </header>
+<div class="app">
 
-  <main id="chat"></main>
-
-  <div class="bottom">
-    <div class="composer">
-      <textarea
-        id="prompt"
-        placeholder="Message Mini ChatGPT..."
-        rows="1"
-      ></textarea>
-      <button id="send">Send</button>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-icon">🤖</span>
+      <span>Mini ChatGPT</span>
     </div>
-    <div class="hint">
+
+    <button class="new-chat" id="newChat">
+      <span>＋</span><span>New chat</span>
+    </button>
+
+    <div class="recent-title">Recent chats</div>
+    <div class="chat-list" id="chatList"></div>
+
+    <div class="sidebar-footer">
+      Your chats are saved in this browser.<br>
       AI can make mistakes. Check important information.
     </div>
-  </div>
+  </aside>
+  <div class="backdrop" id="backdrop"></div>
 
-  <script>
-    const API_URL =
-      "https://mini-chatgpt-api.hemanthkumar22156.workers.dev";
+  <main class="main">
+    <div class="topbar">
+      <button class="menu-btn" id="menuBtn" title="Toggle sidebar" aria-label="Toggle sidebar">☰</button>
+      <div class="top-title">Mini ChatGPT</div>
+    </div>
 
-    const chat = document.getElementById("chat");
-    const promptBox = document.getElementById("prompt");
-    const sendButton = document.getElementById("send");
+    <section id="chat"></section>
 
-    let history = [];
+    <div class="toast hidden" id="toast" role="alert"></div>
 
-    addMessage(
-      "assistant",
-      "HI! 👋 I'm your Mini ChatGPT. Ask me anything"
-    );
+    <div class="bottom">
+      <div class="composer">
+        <textarea id="prompt" rows="1" maxlength="3500"
+          placeholder="Message Mini ChatGPT..."></textarea>
+        <button id="send">Send</button>
+      </div>
+      <div class="hint">AI can make mistakes. Check important information.</div>
+    </div>
+  </main>
+</div>
 
-    function addMessage(role, content) {
-      const box = document.createElement("div");
-      box.className = "message " + role;
+<script>
+(() => {
+  "use strict";
 
-      const label = document.createElement("div");
-      label.className = "label";
-      label.textContent =
-        role === "user" ? "You" : "Mini ChatGPT";
+  const API_URL =
+    "https://mini-chatgpt-api.hemanthkumar22156.workers.dev";
 
-      const text = document.createElement("div");
-      text.textContent = content;
+  const STORAGE_KEY = "miniChatGPT_conversations_v2";
+  const MEMORY_KEY = "miniChatGPT_memory_v1";
 
-      box.append(label, text);
-      chat.appendChild(box);
+  // Limits (must stay inside the Worker limits)
+  const MAX_HISTORY = 10;          // last N messages sent to the Worker
+  const MAX_MSG_CHARS = 3800;      // Worker allows 4000 per message
+  const MAX_TOTAL_CHARS = 11000;   // Worker allows 12000 in total
+  const MAX_CHATS = 50;            // keep browser storage small
+  const REQUEST_TIMEOUT_MS = 90000;
 
-      window.scrollTo({
-        top: document.body.scrollHeight,
-        behavior: "smooth"
-      });
+  // The old welcome message is removed. This cleans it from old chats.
+  const OLD_GREETING_START = "HI! 👋 I'm your Mini ChatGPT";
 
-      return box;
+  const sidebar = document.getElementById("sidebar");
+  const backdrop = document.getElementById("backdrop");
+  const chat = document.getElementById("chat");
+  const chatList = document.getElementById("chatList");
+  const promptBox = document.getElementById("prompt");
+  const sendButton = document.getElementById("send");
+  const toastBox = document.getElementById("toast");
+
+  let conversations = [];
+  let currentChatId = null;
+  let isSending = false;
+  let memory = { name: "", interests: [] };
+  let toastTimer = null;
+  let storageWarned = false;
+
+  /* ---------- helpers ---------- */
+
+  function makeId() {
+    return Date.now().toString(36) +
+      Math.random().toString(36).slice(2, 9);
+  }
+
+  function showToast(text, ms = 7000) {
+    toastBox.textContent = text;
+    toastBox.classList.remove("hidden");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastBox.classList.add("hidden"), ms);
+  }
+
+  function isMobile() {
+    return window.innerWidth <= 700;
+  }
+
+  function closeSidebarOnMobile() {
+    if (isMobile()) sidebar.classList.add("closed");
+  }
+
+  function nearBottom() {
+    return chat.scrollHeight - chat.scrollTop - chat.clientHeight < 140;
+  }
+
+  function scrollToBottom() {
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  /* ---------- memory (name, interests) ---------- */
+
+  function loadMemory() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(MEMORY_KEY) || "{}");
+      memory = {
+        name: typeof saved.name === "string" ? saved.name : "",
+        interests: Array.isArray(saved.interests)
+          ? saved.interests.filter(i => typeof i === "string").slice(0, 8)
+          : []
+      };
+    } catch {
+      memory = { name: "", interests: [] };
+    }
+  }
+
+  function saveMemory(newMemory) {
+    if (!newMemory || typeof newMemory !== "object") return;
+
+    memory = {
+      name: typeof newMemory.name === "string" ? newMemory.name : "",
+      interests: Array.isArray(newMemory.interests)
+        ? newMemory.interests.filter(i => typeof i === "string").slice(0, 8)
+        : []
+    };
+
+    try {
+      localStorage.setItem(MEMORY_KEY, JSON.stringify(memory));
+    } catch {
+      // memory is optional, ignore storage errors
+    }
+  }
+
+  /* ---------- conversations ---------- */
+
+  function currentConversation() {
+    return conversations.find(c => c.id === currentChatId);
+  }
+
+  function saveConversations() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        conversations,
+        currentChatId
+      }));
+    } catch (error) {
+      console.error("Unable to save chats:", error);
+
+      if (!storageWarned) {
+        storageWarned = true;
+        showToast("Browser storage is full or blocked. Your latest chat may not be saved.");
+      }
+    }
+  }
+
+  function loadConversations() {
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(STORAGE_KEY) || "{}"
+      );
+
+      if (Array.isArray(saved.conversations)) {
+        conversations = saved.conversations
+          .filter(c =>
+            c && typeof c.id === "string" &&
+            Array.isArray(c.messages)
+          )
+          .map(c => ({
+            ...c,
+            messages: c.messages.filter(m =>
+              m && typeof m.content === "string" &&
+              (m.role === "user" || m.role === "assistant") &&
+              !(m.role === "assistant" &&
+                m.content.startsWith(OLD_GREETING_START))
+            )
+          }));
+      }
+
+      currentChatId = saved.currentChatId || null;
+    } catch {
+      conversations = [];
+      currentChatId = null;
     }
 
-    async function sendMessage() {
-      const message = promptBox.value.trim();
+    if (!currentConversation()) {
+      createConversation(false);
+    }
 
-      if (!message || sendButton.disabled) return;
+    renderChat();
+    renderChatList();
+  }
 
-      addMessage("user", message);
-      history.push({ role: "user", content: message });
+  function createConversation(shouldSave = true) {
+    const conversation = {
+      id: makeId(),
+      title: "New chat",
+      messages: [],
+      updatedAt: Date.now()
+    };
 
-      promptBox.value = "";
-      sendButton.disabled = true;
-      sendButton.textContent = "...";
+    conversations.unshift(conversation);
+    currentChatId = conversation.id;
 
-      const waiting = addMessage("assistant", "Thinking...");
+    // Keep only the newest chats.
+    if (conversations.length > MAX_CHATS) {
+      const keep = [...conversations]
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+        .slice(0, MAX_CHATS)
+        .map(c => c.id);
 
-      try {
-        const response = await fetch(API_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            messages: history
-          })
-        });
+      conversations = conversations.filter(c => keep.includes(c.id));
+    }
 
-        const data = await response.json();
+    if (shouldSave) saveConversations();
+
+    return conversation;
+  }
+
+  function updateTitle(conversation) {
+    const firstUserMessage = conversation.messages.find(
+      message => message.role === "user"
+    );
+
+    if (firstUserMessage) {
+      conversation.title = firstUserMessage.content
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 36) || "New chat";
+    }
+  }
+
+  function openConversation(id) {
+    if (isSending) return;
+    if (!conversations.some(c => c.id === id)) return;
+
+    currentChatId = id;
+    saveConversations();
+    renderChat();
+    renderChatList();
+    closeSidebarOnMobile();
+  }
+
+  function deleteConversation(id) {
+    if (isSending) return;
+
+    const index = conversations.findIndex(c => c.id === id);
+    if (index === -1) return;
+
+    if (!confirm("Delete this chat?")) return;
+
+    conversations.splice(index, 1);
+
+    if (currentChatId === id) {
+      if (conversations.length > 0) {
+        currentChatId = [...conversations].sort(
+          (a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)
+        )[0].id;
+      } else {
+        createConversation(false);
+      }
+    }
+
+    saveConversations();
+    renderChat();
+    renderChatList();
+  }
+
+  function startNewChat() {
+    if (isSending) return;
+
+    // Reuse an empty chat instead of piling up empty ones.
+    const existing = currentConversation();
+
+    if (!existing || existing.messages.length > 0) {
+      createConversation();
+    }
+
+    renderChat();
+    renderChatList();
+    promptBox.value = "";
+    promptBox.style.height = "auto";
+    promptBox.focus();
+    closeSidebarOnMobile();
+  }
+
+  /* ---------- rendering ---------- */
+
+  function renderChatList() {
+    chatList.innerHTML = "";
+
+    const sorted = [...conversations].sort(
+      (a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)
+    );
+
+    if (sorted.length === 0) {
+      const note = document.createElement("div");
+      note.className = "empty-note";
+      note.textContent = "No chats yet";
+      chatList.appendChild(note);
+      return;
+    }
+
+    sorted.forEach(conversation => {
+      const item = document.createElement("div");
+      item.className = "history-item" +
+        (conversation.id === currentChatId ? " active" : "");
+      item.tabIndex = 0;
+      item.setAttribute("role", "button");
+
+      const icon = document.createElement("span");
+      icon.textContent = "▤";
+
+      const title = document.createElement("span");
+      title.className = "history-title";
+      title.textContent = conversation.title || "New chat";
+      title.title = title.textContent;
+
+      const remove = document.createElement("button");
+      remove.className = "delete-chat";
+      remove.textContent = "×";
+      remove.title = "Delete chat";
+      remove.setAttribute("aria-label", "Delete chat");
+
+      remove.addEventListener("click", event => {
+        event.stopPropagation();
+        deleteConversation(conversation.id);
+      });
+
+      item.addEventListener("click", () => {
+        openConversation(conversation.id);
+      });
+
+      item.addEventListener("keydown", event => {
+        if (event.target === item &&
+            (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          openConversation(conversation.id);
+        }
+      });
+
+      item.append(icon, title, remove);
+      chatList.appendChild(item);
+    });
+  }
+
+  // Show text safely. http(s) links become clickable, everything else stays plain text.
+  const URL_PATTERN = /https?:\/\/[^\s<>"')\]]+/g;
+
+  function renderText(element, text) {
+    element.textContent = "";
+
+    let last = 0;
+
+    for (const match of text.matchAll(URL_PATTERN)) {
+      const url = match[0].replace(/[.,;:!?]+$/, "");
+
+      element.append(
+        document.createTextNode(text.slice(last, match.index))
+      );
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.textContent = url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      element.append(link);
+
+      last = match.index + url.length;
+    }
+
+    element.append(document.createTextNode(text.slice(last)));
+  }
+
+  function addMessageToScreen(role, content) {
+    const wrap = document.createElement("div");
+    wrap.className = "message-wrap";
+
+    const label = document.createElement("div");
+    label.className = "message-label";
+    label.textContent = role === "user" ? "You" : "Mini ChatGPT";
+
+    const body = document.createElement("div");
+    body.className = "message " +
+      (role === "user" ? "user" : "assistant");
+
+    renderText(body, content);
+
+    wrap.append(label, body);
+    chat.appendChild(wrap);
+
+    return { wrap, body };
+  }
+
+  function renderChat() {
+    chat.innerHTML = "";
+
+    const conversation = currentConversation();
+    if (!conversation) return;
+
+    conversation.messages.forEach(message => {
+      addMessageToScreen(message.role, message.content);
+    });
+
+    scrollToBottom();
+  }
+
+  /* ---------- talking to the Worker ---------- */
+
+  // Only send what the Worker accepts: last messages, trimmed, no "Sources" block.
+  function buildPayload(messages) {
+    const out = [];
+    let total = 0;
+
+    for (let i = messages.length - 1;
+         i >= 0 && out.length < MAX_HISTORY; i--) {
+      const message = messages[i];
+
+      let text = message.content;
+
+      if (message.role === "assistant") {
+        text = text.replace(/\n\nSources:\n[\s\S]*$/, "");
+      }
+
+      text = text.slice(0, MAX_MSG_CHARS);
+
+      if (!text.trim()) continue;
+      if (out.length > 0 && total + text.length > MAX_TOTAL_CHARS) break;
+
+      total += text.length;
+      out.unshift({ role: message.role, content: text });
+    }
+
+    while (out.length > 1 && out[0].role !== "user") out.shift();
+
+    return out;
+  }
+
+  class ApiError extends Error {
+    constructor(message, status) {
+      super(message);
+      this.status = status;
+    }
+  }
+
+  async function readStream(response, bodyElement) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let text = "";
+    let streamError = "";
+
+    const handleLine = line => {
+      if (!line.startsWith("data:")) return;
+
+      let event;
+      try { event = JSON.parse(line.slice(5)); } catch { return; }
+
+      if (event.delta) {
+        const stick = nearBottom();
+        text += event.delta;
+        bodyElement.classList.remove("thinking");
+        bodyElement.textContent = text;
+        if (stick) scrollToBottom();
+      }
+
+      if (event.error) streamError = event.error;
+
+      if (event.done) {
+        if (event.sourcesText) text += event.sourcesText;
+        if (event.memory) saveMemory(event.memory);
+      }
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) handleLine(line.trim());
+    }
+
+    buffer += decoder.decode();
+    if (buffer.trim()) handleLine(buffer.trim());
+
+    if (!text.trim() && streamError) {
+      throw new ApiError(streamError, 502);
+    }
+
+    return text;
+  }
+
+  function friendlyError(error) {
+    if (error.name === "AbortError") {
+      return "The reply took too long. Try again.";
+    }
+
+    if (error instanceof ApiError) {
+      if (error.status === 429) {
+        return error.message || "Too many requests. Wait a minute and try again.";
+      }
+      if (error.status === 403) {
+        return "This site is not allowed to use the API. Check ALLOWED_ORIGINS in the Worker.";
+      }
+      return error.message || "Request failed. Try again.";
+    }
+
+    return "Can't reach the server. Check your internet connection and try again.";
+  }
+
+  async function sendMessage() {
+    const message = promptBox.value.trim();
+
+    if (!message || isSending) return;
+
+    let conversation = currentConversation();
+
+    if (!conversation) {
+      conversation = createConversation();
+    }
+
+    const userMessage = { role: "user", content: message };
+    conversation.messages.push(userMessage);
+    conversation.updatedAt = Date.now();
+    updateTitle(conversation);
+    saveConversations();
+
+    const userView = addMessageToScreen("user", message);
+
+    promptBox.value = "";
+    promptBox.style.height = "auto";
+
+    isSending = true;
+    sendButton.disabled = true;
+    sendButton.textContent = "...";
+    toastBox.classList.add("hidden");
+
+    const waitingView = addMessageToScreen("assistant", "Thinking...");
+    waitingView.body.classList.add("thinking");
+    scrollToBottom();
+
+    const requestChatId = conversation.id;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          messages: buildPayload(conversation.messages),
+          memory,
+          stream: true,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        })
+      });
+
+      const type = response.headers.get("content-type") || "";
+      let answer = "";
+
+      if (response.ok && type.includes("text/event-stream")) {
+        answer = await readStream(response, waitingView.body);
+      } else {
+        let data;
+
+        try {
+          data = await response.json();
+        } catch {
+          throw new ApiError("Invalid response from the server.", response.status);
+        }
 
         if (!response.ok) {
-          throw new Error(
-            data.error || "Request failed. Please try again."
+          throw new ApiError(
+            data.error || "Request failed. Try again.",
+            response.status
           );
         }
 
-        const answer = data.answer || "No answer received.";
-
-        waiting.lastElementChild.textContent = answer;
-
-        history.push({
-          role: "assistant",
-          content: answer
-        });
-
-      } catch (error) {
-        waiting.lastElementChild.textContent =
-          "Sorry bro! " + error.message +
-          "\nCloudflare Worker settings check pannunga.";
-
-        history.pop();
-
-      } finally {
-        sendButton.disabled = false;
-        sendButton.textContent = "Send";
-        promptBox.focus();
+        if (data.memory) saveMemory(data.memory);
+        answer = data.answer || "";
       }
+
+      if (!answer.trim()) {
+        throw new ApiError("No answer received. Try again.", 502);
+      }
+
+      const target = conversations.find(c => c.id === requestChatId);
+
+      if (target) {
+        target.messages.push({ role: "assistant", content: answer });
+        target.updatedAt = Date.now();
+        updateTitle(target);
+        saveConversations();
+      }
+
+      waitingView.body.classList.remove("thinking");
+      renderText(waitingView.body, answer);
+
+    } catch (error) {
+      console.error("Chat error:", error);
+
+      // Undo this turn so the saved chat and the screen match.
+      const target = conversations.find(c => c.id === requestChatId);
+
+      if (target) {
+        const last = target.messages[target.messages.length - 1];
+
+        if (last === userMessage) {
+          target.messages.pop();
+          saveConversations();
+        }
+      }
+
+      userView.wrap.remove();
+      waitingView.wrap.remove();
+
+      // Put the text back so nothing is lost.
+      promptBox.value = message;
+      promptBox.dispatchEvent(new Event("input"));
+
+      showToast(friendlyError(error));
+
+    } finally {
+      clearTimeout(timer);
+      isSending = false;
+      sendButton.disabled = false;
+      sendButton.textContent = "Send";
+      renderChatList();
+      promptBox.focus();
+      scrollToBottom();
     }
+  }
 
-    sendButton.addEventListener("click", sendMessage);
+  /* ---------- events ---------- */
 
-    promptBox.addEventListener("keydown", function(event) {
-      if (event.key === "Enter" && !event.shiftKey) {
-        event.preventDefault();
-        sendMessage();
-      }
+  document.getElementById("newChat")
+    .addEventListener("click", startNewChat);
+
+  document.getElementById("menuBtn")
+    .addEventListener("click", () => {
+      sidebar.classList.toggle("closed");
     });
 
-    document.getElementById("newChat").addEventListener(
-      "click",
-      function() {
-        history = [];
-        chat.innerHTML = "";
+  backdrop.addEventListener("click", () => {
+    sidebar.classList.add("closed");
+  });
 
-        addMessage(
-          "assistant",
-          "New chat started! 👋 Ask me anything in Tamil, Tanglish, or English."
-        );
+  sendButton.addEventListener("click", sendMessage);
 
-        promptBox.focus();
-      }
-    );
-  </script>
+  promptBox.addEventListener("keydown", event => {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      sendMessage();
+    }
+  });
+
+  promptBox.addEventListener("input", () => {
+    promptBox.style.height = "auto";
+    promptBox.style.height =
+      Math.min(promptBox.scrollHeight, 160) + "px";
+  });
+
+  /* ---------- start ---------- */
+
+  // Close the sidebar first on narrow screens, so it doesn't flash open.
+  if (isMobile()) sidebar.classList.add("closed");
+
+  loadMemory();
+  loadConversations();
+})();
+</script>
 </body>
 </html>
