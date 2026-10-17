@@ -200,6 +200,12 @@ button:focus-visible,textarea:focus-visible,.history-item:focus-visible,a:focus-
 
   const STORAGE_KEY = "miniChatGPT_conversations_v2";
   const MEMORY_KEY = "miniChatGPT_memory_v1";
+  const LOCATION_KEY = "miniChatGPT_location_v1";
+  const LOCATION_MAX_AGE_MS = 30 * 60 * 1000;   // reuse a saved location for 30 minutes
+
+  // Only weather questions ask for the device location.
+  const WEATHER_PATTERN =
+    /\b(mala|malai|mazhai|rain|raining|rainy|weather|vaanilai|vanilai|veyil|forecast|umbrella|kudai|pe[iy]yuma|pe[iy]yum|pe[iy]yudhu|pe[iy]yuthu)\b/i;
 
   // Limits (must stay inside the Worker limits)
   const MAX_HISTORY = 10;          // last N messages sent to the Worker
@@ -209,7 +215,7 @@ button:focus-visible,textarea:focus-visible,.history-item:focus-visible,a:focus-
   const REQUEST_TIMEOUT_MS = 90000;
 
   // The old welcome message is removed. This cleans it from old chats.
-  const OLD_GREETING_START = "HI! 👋 I'm your Mini ChatGPT";
+  const OLD_GREETING_START = "Vanakkam bro! 👋 I'm your Mini ChatGPT";
 
   const sidebar = document.getElementById("sidebar");
   const backdrop = document.getElementById("backdrop");
@@ -287,6 +293,48 @@ button:focus-visible,textarea:focus-visible,.history-item:focus-visible,a:focus-
     } catch {
       // memory is optional, ignore storage errors
     }
+  }
+
+  /* ---------- device location (only for weather questions) ---------- */
+
+  function getLocation() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(LOCATION_KEY) || "null");
+
+      if (saved && Date.now() - saved.time < LOCATION_MAX_AGE_MS) {
+        return Promise.resolve({ lat: saved.lat, lon: saved.lon });
+      }
+    } catch {
+      // ignore broken saved data
+    }
+
+    if (!("geolocation" in navigator)) return Promise.resolve(null);
+
+    return new Promise(resolve => {
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          // Rounded to about 1 km, enough for weather.
+          const location = {
+            lat: Math.round(position.coords.latitude * 100) / 100,
+            lon: Math.round(position.coords.longitude * 100) / 100
+          };
+
+          try {
+            localStorage.setItem(
+              LOCATION_KEY,
+              JSON.stringify({ ...location, time: Date.now() })
+            );
+          } catch {
+            // saving is optional
+          }
+
+          resolve(location);
+        },
+        // Permission denied or no signal: the Worker uses the network location.
+        () => resolve(null),
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 }
+      );
+    });
   }
 
   /* ---------- conversations ---------- */
@@ -704,6 +752,12 @@ button:focus-visible,textarea:focus-visible,.history-item:focus-visible,a:focus-
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     try {
+      let location = null;
+
+      if (WEATHER_PATTERN.test(message)) {
+        location = await getLocation();
+      }
+
       const response = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -711,6 +765,7 @@ button:focus-visible,textarea:focus-visible,.history-item:focus-visible,a:focus-
         body: JSON.stringify({
           messages: buildPayload(conversation.messages),
           memory,
+          ...(location ? { location } : {}),
           stream: true,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
         })
